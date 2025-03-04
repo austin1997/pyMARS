@@ -268,6 +268,12 @@ def pymars(argv):
         type=str,
         default=None
         )
+    parser.add_argument(
+        '--sample',
+        help='Sample the model at specified conditions.',
+        action='store_true',
+        default=False
+    )
 
     parser.add_argument(
         '-V', '--version',
@@ -298,6 +304,27 @@ def pymars(argv):
             logging.info('Converted files: ' + ' '.join(files))
         else:
             logging.info('Converted file: ' + files)
+    elif args.sample:
+        if not args.input:
+            parser.error('A YAML input file needs to be specified using -i or --input')
+
+        with open(args.input, 'r') as the_file:
+            input_dict = yaml.safe_load(the_file)
+        
+        inputs = parse_inputs(input_dict)
+        solution = ct.Solution(inputs.model, inputs.phase_name)
+
+        assert inputs.target_species, 'Need to specify at least one target species.'
+
+        # first, sample thermochemical data and generate metrics for measuring error
+        # (e.g, ignition delays). Also produce adjacency matrices for graphs, which
+        # will be used to produce graphs for any threshold value.
+        from .sampling import sample
+        sampled_metrics, sampled_data = sample(
+            inputs.model, inputs.ignition_conditions, phase_name=inputs.phase_name, num_threads=args.num_threads, path=''
+            )
+        logging.info(f"sampling results: {sampled_metrics}, {sampled_data} shape: {sampled_data.shape}")
+        
     else:
         if not args.input:
             parser.error('A YAML input file needs to be specified using -i or --input')
